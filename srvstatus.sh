@@ -5,7 +5,8 @@
 #         status_time second
 # input: service list require each line contains an element
 
-Influx_mesurement='services_stats'
+Influx_measurement='services_stats'
+# maybe you need change this
 Uid='1000'
 
 SLISTF='service_list'
@@ -42,7 +43,7 @@ query_all() {
         [[ $i == "" ]] && continue
         query_info "$SQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$Influx_mesurement",service=$i "$out
+        OUT=$Influx_measurement",service=$i "$out
         echo "$OUT"
     done
     for i in "${ULIST[@]}"; do
@@ -50,11 +51,9 @@ query_all() {
         [[ $i == "" ]] && continue
         query_info "$UQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$Influx_mesurement",service=$i "$out
+        OUT=$Influx_measurement",service=$i "$out
         echo "$OUT"
     done
-    OUT=${OUT%*,}   # remove last one ','
-    OUT=$OUT']'
 }
 
 query_info() {
