@@ -5,14 +5,22 @@
 #         status_time second
 # input: service list require each line contains an element
 
+Influx_mesurement='services_stats'
+Uid='1000'
+
 SLISTF='service_list'
 ULISTF='user_service_list'
 SLIST=()
 ULIST=()
 SQCMDH='systemctl status '
-UQCMDH='systemctl --user status '
+UQCMDH="sudo -Eu $(id -un $Uid) systemctl --user status "
 CMDT=' -n 0' # disable journal log output
 OUT=''
+
+set_user_dbus_info() {
+    export XDG_RUNNING_DIR="/run/user/$Uid/"
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNNING_DIR}/bus"
+}
 
 err_exit() {
     echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
@@ -25,24 +33,25 @@ parse_list() {
     fi
     mapfile -t SLIST < $SLISTF
     # for user service
-    [[ -f $ULISTF ]] && mapfile -t ULIST < $ULISTF
+    [[ -f $ULISTF ]] && set_user_dbus_info && mapfile -t ULIST < $ULISTF
 }
 
 query_all() {
-    OUT='['
     for i in "${SLIST[@]}"; do
         i=$(tr -d '[:cntrl:],[:space:],[:blank:]' <<< "$i")
         [[ $i == "" ]] && continue
         query_info "$SQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$OUT'{'"\"service\":\"$i\","$out'},'
+        OUT=$Influx_mesurement",service=$i "$out
+        echo "$OUT"
     done
     for i in "${ULIST[@]}"; do
         i=$(tr -d '[:cntrl:],[:space:],[:blank:]' <<< "$i")
         [[ $i == "" ]] && continue
         query_info "$UQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$OUT'{'"\"service\":\"$i\","$out'},'
+        OUT=$Influx_mesurement",service=$i "$out
+        echo "$OUT"
     done
     OUT=${OUT%*,}   # remove last one ','
     OUT=$OUT']'
@@ -71,14 +80,13 @@ query_info() {
     else 
         status_time=0
     fi
-    out="\"status\":$out,\"status_time\":$status_time"
+    out="status=$out,status_time=$status_time"
 }
 
 main() {
     pushd "$(dirname "$0")" &>/dev/null || exit
     parse_list
     query_all
-    echo "$OUT"
     popd &>/dev/null || exit
 }
 
