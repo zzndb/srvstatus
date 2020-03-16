@@ -1,5 +1,5 @@
 # SRVSTATUS
----
+
 A bash script to help you get systemd services status with Telegraf + InfluxDB + Grafana
 
 Support **system systemd services** and **user systemd services**
@@ -21,6 +21,7 @@ Your need install Telegraf + InfluxDB + Grafana before use this script.
 mkdir -p ~/.config/user_telegraf_plugin/shell
 cd ~/.config/user_telegraf_plugin/shell
 git clone https://github.com/zzndb/srvstatus
+cd srvstatus
 chmod +x srvstatus.sh
 ```
 Add your needed system service name into `service_list` file, one name per line.
