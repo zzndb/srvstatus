@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-#
-# optional list dir
+# by zzndb
 # output: service name
 #         status num; active 1, inactive 3, failed 4, other 0
 #         status_time second
+# input: service list require each line contains an element
 
 SLISTF='service_list'
 ULISTF='user_service_list'
@@ -15,7 +15,7 @@ CMDT=' -n 0' # disable journal log output
 OUT=''
 
 err_exit() {
-    echo "$1"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
     exit
 }
 
@@ -23,26 +23,29 @@ parse_list() {
     if [[ ! -f $SLISTF ]]; then
         err_exit "can not found service list file '$SLISTF'"
     fi
-    SLIST="$(cat $SLISTF)"
+    mapfile -t SLIST < $SLISTF
     # for user service
-    [[ -f $ULISTF ]] && ULIST="$(cat $ULISTF)"
+    [[ -f $ULISTF ]] && mapfile -t ULIST < $ULISTF
 }
 
 query_all() {
     OUT='['
-    for i in $SLIST; do
+    for i in "${SLIST[@]}"; do
+        i=$(tr -d '[:cntrl:],[:space:],[:blank:]' <<< "$i")
+        [[ $i == "" ]] && continue
         query_info "$SQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$OUT'{'"\"service\":\"$i.service\","$out'},'
+        OUT=$OUT'{'"\"service\":\"$i\","$out'},'
     done
-    for i in $ULIST; do
+    for i in "${ULIST[@]}"; do
+        i=$(tr -d '[:cntrl:],[:space:],[:blank:]' <<< "$i")
+        [[ $i == "" ]] && continue
         query_info "$UQCMDH""$i""$CMDT"
         # echo "service=$i,"$out
-        OUT=$OUT'{'"\"service\":\"$i.service\","$out'},'
+        OUT=$OUT'{'"\"service\":\"$i\","$out'},'
     done
-    OUT=${OUT%*,}
+    OUT=${OUT%*,}   # remove last one ','
     OUT=$OUT']'
-    echo "$OUT"
 }
 
 query_info() {
@@ -71,7 +74,12 @@ query_info() {
     out="\"status\":$out,\"status_time\":$status_time"
 }
 
-pushd "$(dirname "$0")" &>/dev/null || exit
-parse_list
-query_all
-popd &>/dev/null || exit
+main() {
+    pushd "$(dirname "$0")" &>/dev/null || exit
+    parse_list
+    query_all
+    echo "$OUT"
+    popd &>/dev/null || exit
+}
+
+main "$@"
