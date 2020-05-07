@@ -3,6 +3,7 @@
 # output: service name
 #         status num; active 1, inactive 3, failed 4, other 0
 #         status_time second
+#         memory bytes (if listed by systemctl)
 # input: service list require each line contains an element
 
 Influx_measurement='services_stats'
@@ -59,9 +60,10 @@ query_all() {
 query_info() {
     local info
     info=$($1)
-    info="$(echo -e "$info" | sed -n '3s/.*Active:\ \(.*\).*/\1/p')"
-    # echo $info 
-    status=${info%% since*}
+    #1. STATUS
+    info_status="$(echo -e "$info" | sed -n '3s/.*Active:\ \(.*\).*/\1/p')"
+    #echo $info_status 
+    status=${info_status%% since*}
     if [[ $status == "active (running)" ]]; then
         out="1"
     elif [[ $status == "inactive (dead)" ]]; then
@@ -71,6 +73,7 @@ query_info() {
     else
         out="0"
     fi
+    #2. STATUS_TIME
     # echo "'"$status"'"
     if [[ $info =~ "since" ]]; then
         status_time=$(echo "$info" | sed -n 's/.*[a-zA-Z]\{3\} \([0-9 :-]*[A-Z]\{3\}\);.*/\1/p')
@@ -79,7 +82,21 @@ query_info() {
     else 
         status_time=0
     fi
+    #3. Memory used    
+    memory="$(echo -e "$info" | sed -n 's/.*Memory:\ \(.*\).*/\1/p')"
+    if [[ $memory =~ [BKMG]$ ]]; then
+        memory="$(echo -e "$memory" | sed 's/B/\ 1/')"
+        memory="$(echo -e "$memory" | sed 's/K/\ 1024/')"
+        memory="$(echo -e "$memory" | sed 's/M/\ 1048576/')"
+        memory="$(echo -e "$memory" | sed 's/G/\ 1073741824/')"
+        memory="$(echo -e "$memory" | awk '{printf "%d\n",$1*$2}')"
+    fi
+    
     out="status=$out,status_time=$status_time"
+    
+    if [ -n "$memory" ]; then
+        out="$out,memory=$memory"
+    fi
 }
 
 main() {
