@@ -18,7 +18,7 @@ SLIST=()
 ULIST=()
 SQCMDH='systemctl show '
 UQCMDH='sudo -Eu '$(id -un $Uid)' systemctl --user show '
-CMDT=' --property=ActiveState,ActiveEnterTimestamp,MemoryCurrent'
+CMDT=' --property=ActiveState,ActiveEnterTimestamp,ActiveExitTimestamp,MemoryCurrent'
 OUT=''
 
 set_user_dbus_info() {
@@ -75,7 +75,11 @@ query_info() {
         out="0"
     fi
     #2. STATUS_TIME
-    info_time="$(grep ActiveEnterTimestamp <<< "$info")"
+    if [[ $out == "1" ]]; then
+        info_time="$(grep ActiveEnterTimestamp <<< "$info")"
+    else
+        info_time="$(grep ActiveExitTimestamp <<< "$info")"
+    fi
     if [[ ${info_time#*=} != "" ]]; then
         status_time=$(($(date '+%s') - $(date --date="${info_time#*=}" '+%s')))
     else
