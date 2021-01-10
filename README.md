@@ -11,7 +11,9 @@ It use some cli tool to get info from `systemctl` invoke, output the info use *I
 ## Requirements
 * bash > 4.0 (because of `mapfile` use, you can also follow [this](https://github.com/koalaman/shellcheck/wiki/SC2207#correct-code) changing this script for lower version bash 
 * coreutils (for `date, tr`
-* sed
+* grep
+* sudo
+* systemd
 
 Your need install Telegraf + InfluxDB + Grafana before use this script.
 
