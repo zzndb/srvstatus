@@ -5,6 +5,8 @@
 #         status_time second
 #         memory bytes (if listed by systemctl)
 # input: service list require each line contains an element
+#
+set -euo pipefail
 
 Influx_measurement='services_stats'
 # maybe you need change this
@@ -14,9 +16,9 @@ SLISTF='service_list'
 ULISTF='user_service_list'
 SLIST=()
 ULIST=()
-SQCMDH='systemctl status '
-UQCMDH="sudo -Eu $(id -un $Uid) systemctl --user status "
-CMDT=' -n 0' # disable journal log output
+SQCMDH='systemctl show '
+UQCMDH='sudo -Eu '$(id -un $Uid)' systemctl --user show '
+CMDT=' --property=ActiveState,ActiveEnterTimestamp,MemoryCurrent'
 OUT=''
 
 set_user_dbus_info() {
@@ -61,12 +63,11 @@ query_info() {
     local info
     info=$($1)
     #1. STATUS
-    info_status="$(echo -e "$info" | sed -n 's/.*Active:\ \(.*\)/\1/p')"
-    #echo $info_status 
-    status=${info_status%% since*}
-    if [[ $status == "active (running)" ]]; then
+    info_status="$(grep ActiveState <<< "$info")"
+    status=${info_status#*=}
+    if [[ $status == "active" ]]; then
         out="1"
-    elif [[ $status == "inactive (dead)" ]]; then
+    elif [[ $status == "inactive" ]]; then
         out="3"
     elif [[ $status =~ "failed" ]]; then
         out="4"
@@ -74,27 +75,18 @@ query_info() {
         out="0"
     fi
     #2. STATUS_TIME
-    # echo "'"$status"'"
-    if [[ $info =~ "since" ]]; then
-        status_time=$(echo "$info" | sed -n 's/.*[a-zA-Z]\{3\} \([0-9 :-]*[A-Z]\{3\}\);.*/\1/p')
-        status_time=$(($(date '+%s') - $(date --date="$status_time" '+%s')))
-        # echo "'"$status_time"'"
-    else 
+    info_time="$(grep ActiveEnterTimestamp <<< "$info")"
+    if [[ ${info_time#*=} != "" ]]; then
+        status_time=$(($(date '+%s') - $(date --date="${info_time#*=}" '+%s')))
+    else
         status_time=0
     fi
-    #3. Memory used    
-    memory="$(echo -e "$info" | sed -n 's/.*Memory:\ \(.*\).*/\1/p')"
-    if [[ $memory =~ [BKMG]$ ]]; then
-        memory="$(echo -e "$memory" | sed 's/B/\ 1/')"
-        memory="$(echo -e "$memory" | sed 's/K/\ 1024/')"
-        memory="$(echo -e "$memory" | sed 's/M/\ 1048576/')"
-        memory="$(echo -e "$memory" | sed 's/G/\ 1073741824/')"
-        memory="$(echo -e "$memory" | awk '{printf "%d\n",$1*$2}')"
-    fi
-    
     out="status=$out,status_time=$status_time"
-    
-    if [ -n "$memory" ]; then
+    #3. Memory used
+    # empty, [not set], bytes num
+    info_memory="$(grep MemoryCurrent <<< "$info")"
+    memory="${info_memory#*=}"
+    if [[ $memory != "" && $memory != "[not set]" ]]; then
         out="$out,memory=$memory"
     fi
 }
