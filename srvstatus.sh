@@ -61,7 +61,7 @@ query_info() {
     local info
     info=$($1)
     #1. STATUS
-    info_status="$(echo -e "$info" | sed -n '3s/.*Active:\ \(.*\).*/\1/p')"
+    info_status="$(echo -e "$info" | sed -n 's/.*Active:\ \(.*\)/\1/p')"
     #echo $info_status 
     status=${info_status%% since*}
     if [[ $status == "active (running)" ]]; then
